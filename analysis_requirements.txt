@@ -1,5 +1,8 @@
+# This is a stable, compatible set of libraries for the backend ETL job.
 pandas==2.2.2
+numpy==1.26.4
+pyarrow==16.1.0
 scikit-learn==1.5.0
 sqlalchemy==2.0.30
 pg8000
-python-dotenv==1.0.1
+boto3
