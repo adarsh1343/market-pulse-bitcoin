@@ -1,7 +1,8 @@
+# This list provides stable, compatible versions for Streamlit Cloud
+streamlit==1.36.0
 pandas==2.2.2
+numpy==1.26.4
+plotly==5.22.0
 sqlalchemy==2.0.30
 pg8000
-streamlit==1.36.0
-plotly==5.22.0
-python-dotenv==1.0.1
 openpyxl
