@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 import plotly.express as px
 from pathlib import Path
 
-# --- Robust File Paths (Updated for .xlsx) ---
+# --- Robust File Paths for Local Development ---
 SCRIPT_DIR = Path(__file__).parent
 ROOT_DIR = SCRIPT_DIR.parent
 SAMPLE_VOLATILITY_PATH = ROOT_DIR / "sample_volatility.xlsx"
@@ -17,28 +17,29 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- Data Loading (Updated for .xlsx) ---
+# --- Data Loading (Updated for Caching) ---
 @st.cache_data(ttl=600)
-def load_data(table_name, engine=None):
+# The underscore in front of _engine tells Streamlit to ignore this argument for caching.
+def load_data(table_name, _engine=None):
     """
     Tries to load data from the database. If it fails, it loads from a local XLSX file.
     """
-    if engine:
+    if _engine:
         try:
-            return pd.read_sql(f'SELECT * FROM "{table_name}"', engine)
+            return pd.read_sql(f'SELECT * FROM "{table_name}"', _engine)
         except Exception:
             st.warning("Could not connect to the database. Using local sample data.")
             if table_name == 'volatility_by_day':
-                return pd.read_excel(SAMPLE_VOLATILITY_PATH) # Use read_excel
+                return pd.read_excel(SAMPLE_VOLATILITY_PATH)
             if table_name == 'detected_anomalies':
-                return pd.read_excel(SAMPLE_ANOMALIES_PATH) # Use read_excel
-    
+                return pd.read_excel(SAMPLE_ANOMALIES_PATH)
+
     # If no engine, run in local mode
     if table_name == 'volatility_by_day':
-        return pd.read_excel(SAMPLE_VOLATILITY_PATH) # Use read_excel
+        return pd.read_excel(SAMPLE_VOLATILITY_PATH)
     if table_name == 'detected_anomalies':
-        return pd.read_excel(SAMPLE_ANOMALIES_PATH) # Use read_excel
-    
+        return pd.read_excel(SAMPLE_ANOMALIES_PATH)
+
     return pd.DataFrame()
 
 # --- Main Dashboard ---
@@ -51,17 +52,20 @@ try:
         engine = create_engine(
             f"postgresql+pg8000://{st.secrets.db_credentials.user}:{st.secrets.db_credentials.password}@{st.secrets.db_credentials.host}:5432/{st.secrets.db_credentials.db_name}"
         )
-except Exception:
+except Exception as e:
+    # Pass silently on deployed app if connection fails
     pass
 
-volatility_df = load_data('volatility_by_day', engine)
-anomalies_df = load_data('detected_anomalies', engine)
+# We now pass the engine object to the _engine parameter in our function calls
+volatility_df = load_data('volatility_by_day', _engine=engine)
+anomalies_df = load_data('detected_anomalies', _engine=engine)
 
 if engine:
-    ohlc_df = load_data('btc_ohlc_raw', engine)
+    ohlc_df = load_data('btc_ohlc_raw', _engine=engine)
     if not ohlc_df.empty:
         ohlc_df['timestamp'] = pd.to_datetime(ohlc_df['timestamp'], unit='s')
 else:
+    # Create dummy price data for local display
     date_range = pd.to_datetime(anomalies_df['timestamp'], unit='s')
     dummy_prices = pd.DataFrame({
         'timestamp': date_range,
@@ -84,7 +88,7 @@ else:
 st.header("Anomaly Detection: Market Shocks")
 if not ohlc_df.empty and not anomalies_df.empty:
     anomalies_df['timestamp'] = pd.to_datetime(anomalies_df['timestamp'], unit='s')
-    
+
     fig_anomalies = px.line(ohlc_df, x='timestamp', y='close', title='Bitcoin Price with Detected Anomalies')
     fig_anomalies.add_scatter(
         x=anomalies_df['timestamp'],
